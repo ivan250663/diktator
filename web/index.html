@@ -5,111 +5,283 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DIKTATOR</title>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            margin: 0;
-            background: #1a1a2e;
+            background: #0d1117;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100vh;
             font-family: Arial, sans-serif;
+            padding: 20px;
         }
 
-        #tlacidlo {
-            width: 280px;
-            height: 280px;
+        #tlacidlo-nahraj {
+            width: 260px;
+            height: 260px;
             border-radius: 50%;
             background: #e94560;
             border: none;
             color: white;
-            font-size: 28px;
+            font-size: 32px;
             cursor: pointer;
             transition: transform 0.1s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        #tlacidlo:active {
-            transform: scale(0.95);
-        }
-
-        #tlacidlo.nahrava {
-            background: #0f3460;
+        #tlacidlo-nahraj.nahrava {
+            background: #c0392b;
             animation: pulz 1s infinite;
         }
 
         @keyframes pulz {
             0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.06); }
+        }
+
+        #text-box {
+            margin-top: 30px;
+            background: #1c2333;
+            border-radius: 16px;
+            padding: 24px;
+            width: 100%;
+            max-width: 500px;
+            min-height: 100px;
+            color: white;
+            font-size: 26px;
+            line-height: 1.5;
+            text-align: center;
+            display: none;
+        }
+
+        #tlacidla {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+
+        .akcia {
+            width: 100%;
+            padding: 24px;
+            border: none;
+            border-radius: 16px;
+            font-size: 26px;
+            font-weight: bold;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #btn-odoslat { background: #27ae60; color: white; }
+        #btn-znova   { background: #e67e22; color: white; }
+        #btn-opravit { background: #2980b9; color: white; }
+
+        #editor {
+            display: none;
+            flex-direction: column;
+            gap: 16px;
+            width: 100%;
+            max-width: 500px;
+            margin-top: 20px;
+        }
+
+        #editor textarea {
+            width: 100%;
+            padding: 20px;
+            font-size: 24px;
+            border-radius: 16px;
+            border: 2px solid #2980b9;
+            background: #1c2333;
+            color: white;
+            min-height: 120px;
+            resize: none;
+        }
+
+        #btn-ulozit {
+            background: #27ae60;
+            color: white;
+            padding: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
         }
 
         #stav {
-            color: white;
-            font-size: 22px;
-            margin-top: 40px;
+            color: #8b949e;
+            font-size: 20px;
+            margin-top: 20px;
             text-align: center;
-            min-height: 60px;
+        }
+
+        #skopirovat {
+            display: none;
+            margin-top: 16px;
+            background: #444;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 16px 32px;
+            font-size: 20px;
+            cursor: pointer;
         }
     </style>
 </head>
 <body>
-    <button id="tlacidlo">🎙 HOVOR</button>
+
+    <button id="tlacidlo-nahraj">
+        <span style="font-size:48px">🎙</span>
+        <span>HOVOR</span>
+    </button>
+
+    <div id="text-box"></div>
+
+    <div id="tlacidla">
+        <button class="akcia" id="btn-odoslat">✅ ODOSLAŤ</button>
+        <button class="akcia" id="btn-znova">🔄 ZNOVA</button>
+        <button class="akcia" id="btn-opravit">✏️ OPRAVIŤ</button>
+    </div>
+
+    <div id="editor">
+        <textarea id="textarea-oprava"></textarea>
+        <button id="btn-ulozit">✅ ULOŽIŤ OPRAVU</button>
+    </div>
+
+    <button id="skopirovat">📋 SKOPÍROVAŤ TEXT</button>
+
     <div id="stav">Stlač a hovor</div>
 
-    <script>
-        const tlacidlo = document.getElementById('tlacidlo');
-        const stav = document.getElementById('stav');
+<script>
+    const btnNahraj   = document.getElementById('tlacidlo-nahraj');
+    const textBox     = document.getElementById('text-box');
+    const tlacidla    = document.getElementById('tlacidla');
+    const btnOdoslat  = document.getElementById('btn-odoslat');
+    const btnZnova    = document.getElementById('btn-znova');
+    const btnOpravit  = document.getElementById('btn-opravit');
+    const editor      = document.getElementById('editor');
+    const textarea    = document.getElementById('textarea-oprava');
+    const btnUlozit   = document.getElementById('btn-ulozit');
+    const btnKopirovat = document.getElementById('skopirovat');
+    const stav        = document.getElementById('stav');
 
-        let mediaRecorder;
-        let kusky = [];
+    let mediaRecorder, kusky = [], aktualnyText = '';
 
-        tlacidlo.addEventListener('mousedown', zacniNahravat);
-        tlacidlo.addEventListener('touchstart', zacniNahravat);
-        tlacidlo.addEventListener('mouseup', zastevNahravat);
-        tlacidlo.addEventListener('touchend', zastevNahravat);
+    function citajNahlas(text) {
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = 'sk-SK';
+        utt.rate = 0.9;
+        speechSynthesis.speak(utt);
+    }
 
-        async function zacniNahravat(e) {
-            e.preventDefault();
-            kusky = [];
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            mediaRecorder.ondataavailable = e => kusky.push(e.data);
-            mediaRecorder.onstop = odosliAudio;
-            mediaRecorder.start();
-            tlacidlo.classList.add('nahrava');
-            tlacidlo.textContent = '⏺ NAHRÁVA...';
-            stav.textContent = 'Nahrávam...';
+    function zobrazText(text) {
+        aktualnyText = text;
+        textBox.textContent = text;
+        textBox.style.display = 'block';
+        tlacidla.style.display = 'flex';
+        btnKopirovat.style.display = 'inline-block';
+        editor.style.display = 'none';
+        citajNahlas(text);
+    }
+
+    function resetuj() {
+        textBox.style.display = 'none';
+        tlacidla.style.display = 'none';
+        editor.style.display = 'none';
+        btnKopirovat.style.display = 'none';
+        btnNahraj.innerHTML = '<span style="font-size:48px">🎙</span><span>HOVOR</span>';
+        btnNahraj.classList.remove('nahrava');
+        stav.textContent = 'Stlač a hovor';
+    }
+
+    btnNahraj.addEventListener('mousedown', zacni);
+    btnNahraj.addEventListener('touchstart', zacni, {passive: false});
+    btnNahraj.addEventListener('mouseup', zastav);
+    btnNahraj.addEventListener('touchend', zastav, {passive: false});
+
+    async function zacni(e) {
+        e.preventDefault();
+        kusky = [];
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder.ondataavailable = e => kusky.push(e.data);
+        mediaRecorder.onstop = odosli;
+        mediaRecorder.start();
+        btnNahraj.classList.add('nahrava');
+        btnNahraj.innerHTML = '<span style="font-size:48px">⏺</span><span>NAHRÁVA...</span>';
+        stav.textContent = '';
+    }
+
+    function zastav(e) {
+        e.preventDefault();
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
         }
+    }
 
-        function zastevNahravat(e) {
-            e.preventDefault();
-            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(t => t.stop());
-            }
+    async function odosli() {
+        btnNahraj.innerHTML = '<span style="font-size:48px">⏳</span><span>ČAKÁ...</span>';
+        stav.textContent = 'Spracúvam...';
+
+        const blob = new Blob(kusky, { type: 'audio/webm' });
+        const fd = new FormData();
+        fd.append('audio', blob, 'nahravka.webm');
+
+        try {
+            const res = await fetch('/nahraj', { method: 'POST', body: fd });
+            const data = await res.json();
+            btnNahraj.innerHTML = '<span style="font-size:48px">🎙</span><span>HOVOR</span>';
+            btnNahraj.classList.remove('nahrava');
+            stav.textContent = '';
+            zobrazText(data.text);
+        } catch(err) {
+            resetuj();
+            stav.textContent = 'Chyba — skús znova';
         }
+    }
 
-        async function odosliAudio() {
-            tlacidlo.classList.remove('nahrava');
-            tlacidlo.textContent = '⏳ SPRACÚVA...';
-            stav.textContent = 'Odosielam...';
+    btnOdoslat.addEventListener('click', () => {
+        citajNahlas(aktualnyText);
+        navigator.clipboard.writeText(aktualnyText).catch(() => {});
+        stav.textContent = 'Text skopírovaný ✓';
+        setTimeout(resetuj, 2000);
+    });
 
-            const blob = new Blob(kusky, { type: 'audio/webm' });
-            const formData = new FormData();
-            formData.append('audio', blob, 'nahravka.webm');
+    btnZnova.addEventListener('click', resetuj);
 
-            try {
-                const odpoved = await fetch('/nahraj', {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await odpoved.json();
-                tlacidlo.textContent = '🎙 HOVOR';
-                stav.textContent = data.text;
-            } catch (err) {
-                tlacidlo.textContent = '🎙 HOVOR';
-                stav.textContent = 'Chyba — skús znova';
-            }
+    btnOpravit.addEventListener('click', () => {
+        textarea.value = aktualnyText;
+        editor.style.display = 'flex';
+        tlacidla.style.display = 'none';
+        textarea.focus();
+    });
+
+    btnUlozit.addEventListener('click', () => {
+        const opraveny = textarea.value.trim();
+        if (opraveny) {
+            zobrazText(opraveny);
+            fetch('/oprava', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ povodny: aktualnyText, opraveny: opraveny })
+            }).catch(() => {});
         }
-    </script>
+    });
+
+    btnKopirovat.addEventListener('click', () => {
+        navigator.clipboard.writeText(aktualnyText).catch(() => {});
+        stav.textContent = 'Skopírované ✓';
+    });
+</script>
 </body>
 </html>
