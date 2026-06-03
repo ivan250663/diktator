@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKTATOR</title>
+    <style>
+        body {
+            margin: 0;
+            background: #1a1a2e;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+        }
+
+        #tlacidlo {
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: #e94560;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        #tlacidlo:active {
+            transform: scale(0.95);
+        }
+
+        #tlacidlo.nahrava {
+            background: #0f3460;
+            animation: pulz 1s infinite;
+        }
+
+        @keyframes pulz {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        #stav {
+            color: white;
+            font-size: 22px;
+            margin-top: 40px;
+            text-align: center;
+            min-height: 60px;
+        }
+    </style>
+</head>
+<body>
+    <button id="tlacidlo">🎙 HOVOR</button>
+    <div id="stav">Stlač a hovor</div>
+
+    <script>
+        const tlacidlo = document.getElementById('tlacidlo');
+        const stav = document.getElementById('stav');
+
+        let mediaRecorder;
+        let kusky = [];
+
+        tlacidlo.addEventListener('mousedown', zacniNahravat);
+        tlacidlo.addEventListener('touchstart', zacniNahravat);
+        tlacidlo.addEventListener('mouseup', zastevNahravat);
+        tlacidlo.addEventListener('touchend', zastevNahravat);
+
+        async function zacniNahravat(e) {
+            e.preventDefault();
+            kusky = [];
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.ondataavailable = e => kusky.push(e.data);
+            mediaRecorder.onstop = odosliAudio;
+            mediaRecorder.start();
+            tlacidlo.classList.add('nahrava');
+            tlacidlo.textContent = '⏺ NAHRÁVA...';
+            stav.textContent = 'Nahrávam...';
+        }
+
+        function zastevNahravat(e) {
+            e.preventDefault();
+            if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            }
+        }
+
+        async function odosliAudio() {
+            tlacidlo.classList.remove('nahrava');
+            tlacidlo.textContent = '⏳ SPRACÚVA...';
+            stav.textContent = 'Odosielam...';
+
+            const blob = new Blob(kusky, { type: 'audio/webm' });
+            const formData = new FormData();
+            formData.append('audio', blob, 'nahravka.webm');
+
+            try {
+                const odpoved = await fetch('/nahraj', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await odpoved.json();
+                tlacidlo.textContent = '🎙 HOVOR';
+                stav.textContent = 'Nahrávka prijatá ✓ (' + data.velkost_bajtov + ' bajtov)';
+            } catch (err) {
+                tlacidlo.textContent = '🎙 HOVOR';
+                stav.textContent = 'Chyba — skús znova';
+            }
+        }
+    </script>
+</body>
+</html>
