@@ -5,7 +5,8 @@
 - Štruktúra: server/main.py, web/index.html
 - Server beží cez uvicorn, webová stránka funguje
 - Mikrofón nahrá hlas, server prijme audio
-- Git inicializovaný, 2 commity
+- Whisper API prepíše hlas na text ✓
+- Git inicializovaný, commity uložené
 
 ## Stack
 - Python + FastAPI + uvicorn
@@ -15,6 +16,9 @@
 ## Ďalší krok — Krok 2
 Pridať OpenAI Whisper API na prepis hlasu na text.
 Potrebujeme API kľúč z platform.openai.com.
+
+## Ďalší krok — Krok 3
+Nasadiť na cloud (Railway) aby server bežal bez počítača.
 
 ## Štruktúra priečinka
 DIKTATOR/
