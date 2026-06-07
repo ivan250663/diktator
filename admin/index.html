@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DIKTATOR — Admin</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: #0d1117;
+            color: #c9d1d9;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h1 { color: #58a6ff; margin-bottom: 20px; font-size: 24px; }
+        table { width: 100%; border-collapse: collapse; font-size: 15px; }
+        th {
+            background: #161b22;
+            color: #8b949e;
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #30363d;
+        }
+        td { padding: 12px; border-bottom: 1px solid #21262d; vertical-align: top; }
+        tr:hover td { background: #161b22; }
+        .cas { color: #8b949e; font-size: 13px; white-space: nowrap; }
+        .povodny { color: #f85149; }
+        .opraveny { color: #3fb950; }
+        textarea {
+            width: 100%;
+            background: #1c2333;
+            color: white;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 8px;
+            font-size: 15px;
+            resize: vertical;
+        }
+        button {
+            margin-top: 6px;
+            padding: 8px 16px;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #2ea043; }
+        .btn-prehrat { background: #1f6feb; }
+        .btn-prehrat:hover { background: #388bfd; }
+        #stav { color: #8b949e; font-size: 14px; margin-bottom: 16px; }
+        .prazdne { color: #8b949e; font-style: italic; }
+    </style>
+</head>
+<body>
+    <h1>DIKTATOR — záznamy</h1>
+    <div id="stav">Načítavam...</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Čas</th>
+                <th>Whisper prepis</th>
+                <th>Opravený text</th>
+                <th>Akcia</th>
+            </tr>
+        </thead>
+        <tbody id="telo"></tbody>
+    </table>
+
+<script>
+    async function nacitaj() {
+        const res = await fetch('/api/zaznamy');
+        const data = await res.json();
+        const telo = document.getElementById('telo');
+        const stav = document.getElementById('stav');
+
+        stav.textContent = 'Celkom záznamov: ' + data.length;
+
+        if (data.length === 0) {
+            telo.innerHTML = '<tr><td colspan="4" class="prazdne" style="padding:20px">Žiadne záznamy</td></tr>';
+            return;
+        }
+
+        telo.innerHTML = '';
+        data.forEach(r => {
+            const tr = document.createElement('tr');
+            const btnPrehrat = r.audio_subor
+                ? `<br><button class="btn-prehrat" onclick="prehraj('${r.audio_subor.split('/').pop()}')">▶ Prehrať</button>`
+                : '';
+            tr.innerHTML = `
+                <td class="cas">${r.cas.replace('T', ' ').substring(0, 16)}</td>
+                <td class="povodny">${r.povodny_text}</td>
+                <td class="opraveny">${r.opraveny_text || '<span class="prazdne">neopravené</span>'}</td>
+                <td>
+                    <textarea rows="2" id="op-${r.id}">${r.opraveny_text || r.povodny_text}</textarea>
+                    <button onclick="uloz(${r.id}, '${escJs(r.povodny_text)}')">Uložiť</button>
+                    ${btnPrehrat}
+                </td>
+            `;
+            telo.appendChild(tr);
+        });
+    }
+
+    function escJs(s) {
+        return s.replace(/'/g, "\\'").replace(/\n/g, ' ');
+    }
+
+    function prehraj(subor) {
+        const audio = new Audio('/audio/' + subor);
+        audio.play();
+    }
+
+    async function uloz(id, povodny) {
+        const opraveny = document.getElementById('op-' + id).value.trim();
+        await fetch('/oprava', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ povodny: povodny, opraveny: opraveny, id: id })
+        });
+        nacitaj();
+    }
+
+    nacitaj();
+    setInterval(nacitaj, 30000);
+</script>
+</body>
+</html>

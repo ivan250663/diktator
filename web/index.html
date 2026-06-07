@@ -6,7 +6,6 @@
     <title>DIKTATOR</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-
         body {
             background: #0d1117;
             min-height: 100vh;
@@ -17,7 +16,6 @@
             font-family: Arial, sans-serif;
             padding: 20px;
         }
-
         #tlacidlo-nahraj {
             width: 260px;
             height: 260px;
@@ -35,17 +33,14 @@
             gap: 10px;
             -webkit-tap-highlight-color: transparent;
         }
-
         #tlacidlo-nahraj.nahrava {
             background: #c0392b;
             animation: pulz 1s infinite;
         }
-
         @keyframes pulz {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.06); }
         }
-
         #text-box {
             margin-top: 30px;
             background: #1c2333;
@@ -60,7 +55,6 @@
             text-align: center;
             display: none;
         }
-
         #tlacidla {
             display: none;
             flex-direction: column;
@@ -69,7 +63,6 @@
             max-width: 500px;
             margin-top: 20px;
         }
-
         .akcia {
             width: 100%;
             padding: 24px;
@@ -80,11 +73,9 @@
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
         }
-
         #btn-odoslat { background: #27ae60; color: white; }
         #btn-znova   { background: #e67e22; color: white; }
         #btn-opravit { background: #2980b9; color: white; }
-
         #editor {
             display: none;
             flex-direction: column;
@@ -93,7 +84,6 @@
             max-width: 500px;
             margin-top: 20px;
         }
-
         #editor textarea {
             width: 100%;
             padding: 20px;
@@ -105,7 +95,6 @@
             min-height: 120px;
             resize: none;
         }
-
         #btn-ulozit {
             background: #27ae60;
             color: white;
@@ -116,14 +105,12 @@
             border-radius: 16px;
             cursor: pointer;
         }
-
         #stav {
             color: #8b949e;
             font-size: 20px;
             margin-top: 20px;
             text-align: center;
         }
-
         #skopirovat {
             display: none;
             margin-top: 16px;
@@ -138,7 +125,6 @@
     </style>
 </head>
 <body>
-
     <button id="tlacidlo-nahraj">
         <span style="font-size:48px">🎙</span>
         <span>HOVOR</span>
@@ -158,23 +144,22 @@
     </div>
 
     <button id="skopirovat">📋 SKOPÍROVAŤ TEXT</button>
-
     <div id="stav">Stlač a hovor</div>
 
 <script>
-    const btnNahraj   = document.getElementById('tlacidlo-nahraj');
-    const textBox     = document.getElementById('text-box');
-    const tlacidla    = document.getElementById('tlacidla');
-    const btnOdoslat  = document.getElementById('btn-odoslat');
-    const btnZnova    = document.getElementById('btn-znova');
-    const btnOpravit  = document.getElementById('btn-opravit');
-    const editor      = document.getElementById('editor');
-    const textarea    = document.getElementById('textarea-oprava');
-    const btnUlozit   = document.getElementById('btn-ulozit');
+    const btnNahraj    = document.getElementById('tlacidlo-nahraj');
+    const textBox      = document.getElementById('text-box');
+    const tlacidla     = document.getElementById('tlacidla');
+    const btnOdoslat   = document.getElementById('btn-odoslat');
+    const btnZnova     = document.getElementById('btn-znova');
+    const btnOpravit   = document.getElementById('btn-opravit');
+    const editor       = document.getElementById('editor');
+    const textarea     = document.getElementById('textarea-oprava');
+    const btnUlozit    = document.getElementById('btn-ulozit');
     const btnKopirovat = document.getElementById('skopirovat');
-    const stav        = document.getElementById('stav');
+    const stav         = document.getElementById('stav');
 
-    let mediaRecorder, kusky = [], aktualnyText = '';
+    let mediaRecorder, kusky = [], aktualnyText = '', nahrava = false;
 
     function citajNahlas(text) {
         const utt = new SpeechSynthesisUtterance(text);
@@ -194,6 +179,7 @@
     }
 
     function resetuj() {
+        nahrava = false;
         textBox.style.display = 'none';
         tlacidla.style.display = 'none';
         editor.style.display = 'none';
@@ -203,13 +189,17 @@
         stav.textContent = 'Stlač a hovor';
     }
 
-    btnNahraj.addEventListener('mousedown', zacni);
-    btnNahraj.addEventListener('touchstart', zacni, {passive: false});
-    btnNahraj.addEventListener('mouseup', zastav);
-    btnNahraj.addEventListener('touchend', zastav, {passive: false});
+    btnNahraj.addEventListener('click', async () => {
+        if (!nahrava) {
+            nahrava = true;
+            await zacni();
+        } else {
+            nahrava = false;
+            zastav();
+        }
+    });
 
-    async function zacni(e) {
-        e.preventDefault();
+    async function zacni() {
         kusky = [];
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
@@ -217,12 +207,11 @@
         mediaRecorder.onstop = odosli;
         mediaRecorder.start();
         btnNahraj.classList.add('nahrava');
-        btnNahraj.innerHTML = '<span style="font-size:48px">⏺</span><span>NAHRÁVA...</span>';
-        stav.textContent = '';
+        btnNahraj.innerHTML = '<span style="font-size:48px">⏺</span><span>ZASTAV</span>';
+        stav.textContent = 'Nahrávam...';
     }
 
-    function zastav(e) {
-        e.preventDefault();
+    function zastav() {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
             mediaRecorder.stream.getTracks().forEach(t => t.stop());
